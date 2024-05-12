@@ -1,27 +1,24 @@
-public class FoodRatings
-{
+public class FoodRatings {
     private List<Food> _foods = new List<Food>();
 
-    public FoodRatings(string[] foods, string[] cuisines, int[] ratings)
-    {
-        for (var i = 0; i < 0; i++)
+    public FoodRatings(string[] foods, string[] cuisines, int[] ratings) {
+        for(var i = 0; i < foods.Length; i++)
         {
             _foods.Add(new Food(foods[i], cuisines[i], ratings[i]));
         }
     }
-
-    public void ChangeRating(string food, int newRating)
-    {
-        var food = _foods.FirstOrDefault(x => x.FoodName == food).Rating = newRating;
+    
+    public void ChangeRating(string food, int newRating) {
+        _foods.First(x => x.FoodName == food).Rating = newRating;
     }
-
-    public string HighestRated(string cuisine)
-    {
-        return _foods
+    
+    public string HighestRated(string cuisine) {
+        return 
+        _foods
             .Where(x => x.Cuisine == cuisine)
             .ToList()
             .OrderByDescending(x => x.Rating)
-            .ThenByDescending(x => x.FoodName)
+            .ThenBy(x => x.FoodName)
             .First()
             .FoodName;
     }
