@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"sync"
+	"time"
 )
 
 type Fetcher interface {
@@ -22,10 +24,13 @@ var storage = safeMap{
 
 // Crawl uses fetcher to recursively crawl
 // pages starting with url, to a maximum of depth.
-func Crawl(url string, depth int, fetcher Fetcher) {
-	// TODO: Fetch URLs in parallel.
+func Crawl(url string, depth int, fetcher Fetcher, chout chan string) {
+	defer close(chout)
 
-	// Don't fetch the same URL twice.
+	if depth <= 0 {
+		return
+	}
+
 	storage.mutex.Lock()
 	if _, visited := storage.visited[url]; visited {
 		storage.mutex.Unlock()
@@ -35,24 +40,37 @@ func Crawl(url string, depth int, fetcher Fetcher) {
 	storage.visited[url] = true
 	storage.mutex.Unlock()
 
-	// This implementation doesn't do either:
-	if depth <= 0 {
-		return
-	}
 	body, urls, err := fetcher.Fetch(url)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	fmt.Printf("found: %s %q\n", url, body)
-	for _, u := range urls {
-		go Crawl(u, depth-1, fetcher)
+
+	chout <- fmt.Sprintf("found: %s %q\n", url, body)
+
+	result := make([]chan string, len(urls))
+	for i, u := range urls {
+		result[i] = make(chan string)
+		go Crawl(u, depth-1, fetcher, result[i])
 	}
+
+	for i := range result {
+		for x := range result[i] {
+			chout <- x
+		}
+	}
+
 	return
 }
 
 func main() {
-	Crawl("https://golang.org/", 4, fetcher)
+	chout := make(chan string)
+
+	go Crawl("https://golang.org/", 4, fetcher, chout)
+
+	for val := range chout {
+		fmt.Print(val)
+	}
 }
 
 // fakeFetcher is Fetcher that returns canned results.
@@ -64,6 +82,8 @@ type fakeResult struct {
 }
 
 func (f fakeFetcher) Fetch(url string) (string, []string, error) {
+	time.Sleep(time.Duration(rand.Int31n(100)) * time.Microsecond)
+
 	if res, ok := f[url]; ok {
 		return res.body, res.urls, nil
 	}
